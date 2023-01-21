@@ -31,6 +31,7 @@
  */
 using namespace std;
 #include "include/M2MFstAligner.h"
+#include <assert.h>
 
 
 M2MFstAligner::M2MFstAligner () {
@@ -162,6 +163,11 @@ void M2MFstAligner::expectation () {
                                    Times (Times (alpha [q], arc.weight),
                                    beta [arc.nextstate]), beta [0]
                                  );
+        if (false)
+          printf("alpha[%d](%g) * %g * beta[%d](%g) / %g = %g\n",
+                 q, alpha[q].Value(), arc.weight.Value(),
+                 arc.nextstate, beta[arc.nextstate].Value(), beta[0].Value(),
+                 gamma.Value());
         // Check for any BadValue results, otherwise add to the tally.
         // We call this 'prev_alignment_model' which may seem misleading, but
         // this conventions leads to 'alignment_model' being the final version.
@@ -299,7 +305,10 @@ float M2MFstAligner::maximization (bool lastiter) {
     // during the expectation step.
     for (it = prev_alignment_model.begin ();
      it != prev_alignment_model.end (); it++) {
-      alignment_model [(*it).first] = Divide ((*it).second, total);
+      LogWeight estimate = Divide ((*it).second, total);
+      if (false)
+        printf("%d: %g / %g = %g\n", (*it).first, (*it).second.Value(), total.Value(), estimate.Value());
+      alignment_model [(*it).first] = estimate;
       (*it).second = LogWeight::Zero ();
     }
   }else{
@@ -362,21 +371,25 @@ void M2MFstAligner::Sequences2FST (VectorFst<LogArc>* fst, int s1m, int s2m,
     useful for languages like Japanese where there is a distinct imbalance in
     the seq1->seq2 length correspondences.
   */
+  // FIXME: Why initialize these?!?!
   int istate=0; int ostate=0;
   for (unsigned int i = 0; i <= seq1->size (); i++) {
     for (unsigned int j = 0; j <= seq2->size (); j++) {
-      fst->AddState ();
+      int64 tmp = fst->AddState ();
       istate = i * (seq2->size () + 1) + j;
+      assert(tmp == istate); // Don't assume!
 
       //Epsilon arcs for seq1
       if (seq1_del == true)
         for (unsigned int l = 1; l <= s2m; l++) {
           if (j + l <= seq2->size ()) {
             vector<string> subseq2 (seq2->begin () + j, seq2->begin () + j + l);
-            int is = isyms->AddSymbol (
-                       skip + s1s2_sep + vec2str (subseq2, seq2_sep)
-                     );
+            string isymname = skip + s1s2_sep + vec2str (subseq2, seq2_sep);
+            int is = isyms->AddSymbol(isymname);
+            // Note: this state doesn't exist yet... ugh!
             ostate = i * (seq2->size () + 1) + (j + l);
+            if (false)
+              printf("%d => %d %s(%d)\n", istate, ostate, isymname.c_str(), is);
             LogArc arc (is, is, 99, ostate);
             fst->AddArc (istate, arc);
           }
@@ -387,10 +400,11 @@ void M2MFstAligner::Sequences2FST (VectorFst<LogArc>* fst, int s1m, int s2m,
         for (unsigned int k = 1; k <= s1m; k++) {
           if (i + k <= seq1->size ()) {
             vector<string> subseq1 (seq1->begin () + i, seq1->begin () + i + k);
-            int is = isyms->AddSymbol (
-                       vec2str (subseq1, seq1_sep) + s1s2_sep + skip
-                     );
+            string isymname = vec2str (subseq1, seq1_sep) + s1s2_sep + skip;
+            int is = isyms->AddSymbol (isymname);
             ostate = (i + k) * (seq2->size () + 1) + j;
+            if (false)
+              printf("%d => %d %s(%d)\n", istate, ostate, isymname.c_str(), is);
             LogArc arc (is, is, 99, ostate);
             fst->AddArc (istate, arc);
           }
@@ -408,9 +422,13 @@ void M2MFstAligner::Sequences2FST (VectorFst<LogArc>* fst, int s1m, int s2m,
             if (restrict == true && l > 1 && k > 1)
               continue;
 
-            int is = isyms->AddSymbol (s1 + s1s2_sep + s2);
+            string isymname = s1 + s1s2_sep + s2;
+            int is = isyms->AddSymbol (isymname);
             ostate = (i + k) * (seq2->size () + 1) + (j + l);
+            // Isn't this ... just zero?!
             LogArc arc (is, is, LogWeight::One ().Value () * (k + l), ostate);
+            if (false)
+              printf("%d => %d %s(%d) %g\n", istate, ostate, isymname.c_str(), is, arc.weight.Value());
             fst->AddArc (istate, arc);
             //During the initialization phase, just count non-eps transitions
             //We currently initialize to uniform probability so there is also
@@ -445,6 +463,7 @@ void M2MFstAligner::Sequences2FST (VectorFst<LogArc>* fst,
   int s1m = seq1_max;
   int s2m = seq2_max;
   Sequences2FST (fst, s1m, s2m, seq1, seq2);
+  // Increase subsequence lengths until it aligns...
   while (grow == true && fst->NumStates () == 0) {
     fst->DeleteStates ();
     s1m += 1;
@@ -483,6 +502,9 @@ void M2MFstAligner::Sequences2FST (VectorFst<LogArc>* fst,
         prev_alignment_model [arc.ilabel]
           = Plus (prev_alignment_model [arc.ilabel], arc.weight);
       }
+      if (false)
+        printf("model[%d] = %g\n", arc.ilabel,
+               prev_alignment_model[arc.ilabel].Value());
       total = Plus (total, arc.weight);
     }
   }
