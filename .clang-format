@@ -1,0 +1,4 @@
+BasedOnStyle: WebKit
+AlignAfterOpenBracket: true
+AlwaysBreakAfterReturnType: TopLevelDefinitions
+UseTab: Never

@@ -30,45 +30,45 @@
  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#include "./util.h"
 #include <fst/fstlib.h>
 #include <vector>
-#include "./util.h"
 using namespace std;
 
 namespace fst {
 class LatticePruner {
-  /*
-    Generic pruning/re-weighting class for simple WFST lattices.
-    Implements several simple pruning methods including the following:
-       - Arc penalization
-       - N-best extraction via ShortestPath()
-       - Arc-based beam pruning via Prune()
-       - Forward-Backward pruning
-    These may be combined into a cascade as well.
-  */
- public:
-  // Basics declarations
-  vector<LogWeight> alpha, beta;
-  LabelData         penalties;
-  bool              penalize;
-  int               nbest;
-  bool              fb;
-  TropicalWeight    beam;
+    /*
+      Generic pruning/re-weighting class for simple WFST lattices.
+      Implements several simple pruning methods including the following:
+         - Arc penalization
+         - N-best extraction via ShortestPath()
+         - Arc-based beam pruning via Prune()
+         - Forward-Backward pruning
+      These may be combined into a cascade as well.
+    */
+public:
+    // Basics declarations
+    vector<LogWeight> alpha, beta;
+    LabelData penalties;
+    bool penalize;
+    int nbest;
+    bool fb;
+    TropicalWeight beam;
 
-  // Constructors
-  LatticePruner ();
-  // Used with M2MFstAligner we should have a symbol-based penalty model to use
-  LatticePruner (LabelData _penalties, TropicalWeight _beam, int _nbest,
-                 bool _fb, bool _penalize);
-  // Otherwise just use an arbitrary lattice/WFST so no penalizing
-  LatticePruner (TropicalWeight _beam, int _nbest, bool _fb);
+    // Constructors
+    LatticePruner();
+    // Used with M2MFstAligner we should have a symbol-based penalty model to use
+    LatticePruner(LabelData _penalties, TropicalWeight _beam, int _nbest,
+                  bool _fb, bool _penalize);
+    // Otherwise just use an arbitrary lattice/WFST so no penalizing
+    LatticePruner(TropicalWeight _beam, int _nbest, bool _fb);
 
-  void prune_fst (VectorFst<StdArc>* fst);
+    void prune_fst(VectorFst<StdArc>* fst);
 
- private:
-  VectorFst<StdArc> _nbest_prune (VectorFst<StdArc>* fst);
-  void _penalize_arcs (VectorFst<StdArc>* fst);
-  void _forward_backward (VectorFst<StdArc>* fst);
+private:
+    VectorFst<StdArc> _nbest_prune(VectorFst<StdArc>* fst);
+    void _penalize_arcs(VectorFst<StdArc>* fst);
+    void _forward_backward(VectorFst<StdArc>* fst);
 };
-}  // namespace fst
-#endif  // SRC_INCLUDE_LATTICEPRUNER_H_
+} // namespace fst
+#endif // SRC_INCLUDE_LATTICEPRUNER_H_
